@@ -1,7 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-import urllib2
-import json
+
 import smtplib
 import threading
 from sys import exit as sys_exit
@@ -15,8 +14,8 @@ import traceback
 import ast
 import datetime
 
-url = "http://www.oref.org.il/WarningMessages/Alert/alerts.json"
-url2 = "http://www.oref.org.il/WarningMessages/Alert/alerts.json?v=1"
+url = "http://www.oref.org.il/WarningMessages/Alert/alerts.json" #old url
+url2 = "http://www.oref.org.il/WarningMessages/Alert/alerts.json?v=1" #current url
 url3 = "http://www.oref.org.il/WarningMessages/History/AlertsHistory.json"
 url4 = "http://www.oref.org.il/1096-he/Pakar.aspx"
 NAMES = {}
@@ -66,9 +65,6 @@ def get_areas_and_cities():
         else:
             areas_by_cities[label] = 'שטח פתוח - אין יישובים'
 
-    for i in areas_by_cities:
-        print i + "   :" + str(areas_by_cities[i])
-
     NAMES = areas_by_cities
 
 
@@ -83,47 +79,41 @@ def tip_noti(Merhav):
     )
 
 
-def handle_alert(info):
+def handle_alert(alert):
     to_send = ""
-    for alert in info:
-        try:
-            fl = open("log.txt", 'a')
-            print "Finally...."
-            summit = ""
-            d1 = alert['data']
-            d2 = alert['title']
-            d3 = alert['id']
-            if d3 in ALERT_IDS:
-                continue
-            ALERT_IDS.append(d3)
-            names_to_noti = []
-            for ezor in d1:
-                summit += u"צבע אדום באזור - " + ezor.decode("utf-8") + u" ביישובים הבאים: " + NAMES[ezor.decode('utf-8')][0] + "\r\n" + str(datetime.datetime.now()) + "\r\n"
-                names_to_noti.append(ezor)
-            fl.write(summit.encode('utf-8'))
-            fl.close()
-            to_send += summit
-            for ezor in names_to_noti:
-                t = threading.Thread(target=tip_noti,args=(ezor,))
-                t.start()
-        except Exception as exx:
-            fl.close()
-            fl2 = open("error.txt", 'a')
-            fl2.write(traceback.format_exc() + "\r\n")
-            fl2.close()
+    try:
+        fl = open("log.txt", 'a')
+        d1 = alert['data']
+        d2 = alert['id']
+        if d2 in ALERT_IDS:
+            return
+        ALERT_IDS.append(d2)
+        names_to_noti = []
+        for ezor in d1:
+            to_send += u"צבע אדום באזור - " + ezor.decode("utf-8") + u" ביישובים הבאים: " + NAMES[ezor.decode('utf-8')][0] + "\r\n" + str(datetime.datetime.now()) + "\r\n"
+            names_to_noti.append(ezor)
+        fl.write(to_send.encode('utf-8'))
+        fl.close()
+        for ezor in names_to_noti:
+            t = threading.Thread(target=tip_noti,args=(ezor,))
+            t.start()
+    except Exception as exx:
+        fl.close()
+        fl2 = open("error.txt", 'a')
+        fl2.write(traceback.format_exc() + "\r\n")
+        fl2.close()
     if to_send == "":
         pass
     else:
         send_emaile(to_send.encode('utf-8'))
 
+"""
+tray icon functions
+"""
 
 def bye(trya):
     print "Exiting..."
     sys_exit(1)
-
-
-def foo(asd):
-    pass
 
 
 def start_tray():
@@ -137,6 +127,9 @@ def start_tray():
         fl2.close()
 
 
+"""
+email functions
+"""
 def send_emaile(Body):
     email_login()
     msg = MIMEMultipart()
@@ -156,8 +149,11 @@ def email_login():
     server.starttls()
     server.login(fromaddr, password)
 
-
+"""
+initialize
+"""
 def initialize():
+
     get_areas_and_cities() #generate dictionary of the areas
     t = threading.Thread(target=start_tray)
     t.start()
@@ -175,7 +171,6 @@ def main():
                     pass
                 else:
                     info = ast.literal_eval(data)
-                    info = [info]
                     t = threading.Thread(target=handle_alert, args=(info,))
                     t.start()
                 print "Its quiet here....",
